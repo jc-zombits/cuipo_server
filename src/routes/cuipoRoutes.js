@@ -10,10 +10,15 @@ const {
     procesarParte3,
     procesarParte4,
     procesarParte5,
+    procesarParte6,
     copiarDatosPresupuestales,
     getCpcOptions,
     actualizarFila,
-    getProductosMgaOptions
+    getProductosMgaOptions,
+    getProyectosPorSecretariaController,
+    getDetalleProyectoController,
+    getValidationSummary,
+    getMissingDetails
 } = require("../controllers/cuipoController");
 
 // Subir archivo Excel
@@ -43,6 +48,9 @@ router.post('/ejecucion/procesar/parte4', procesarParte4);
 // Procesar la parte 5 - Area Funcional
 router.post('/ejecucion/procesar/parte5', procesarParte5);
 
+// Procesar la parte 6 - Area Funcional
+router.post('/ejecucion/procesar/parte6', procesarParte6);
+
 // Cargar datos de la tabla base a la plantilla
 router.post('/ejecucion/copiar-datos-presupuestales', copiarDatosPresupuestales);
 
@@ -52,6 +60,16 @@ router.post('/ejecucion/actualizar-fila', actualizarFila);
 
 // Obtener producto MGA
 router.get('/ejecucion/productos-mga-options', getProductosMgaOptions);
+
+// Obtener la cantidad de proyectos por secretaria
+router.get('/estadisticas/proyectos_por_secretaria', getProyectosPorSecretariaController);
+
+// Obtener el detalle de cada proyecto por secretaria
+router.get('/estadisticas/detalle_proyecto', getDetalleProyectoController);
+
+// Obtener resumen de los validaDORES
+router.get('/estadisticas/resumen', getValidationSummary);
+router.get('/estadisticas/detalles-faltantes/:tipo_validador', getMissingDetails);
 
 
 module.exports = router;

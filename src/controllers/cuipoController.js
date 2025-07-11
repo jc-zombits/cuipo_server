@@ -3,6 +3,7 @@ const path = require("path");
 const XLSX = require("xlsx");
 const fs = require("fs");
 const { pool } = require("../db");
+const estadisticasModel = require('../models/estadisticasModel');
 
 // Configuración de multer
 const storage = multer.diskStorage({
@@ -178,7 +179,7 @@ async function tablasDisponibles(req, res) {
       FROM information_schema.tables 
       WHERE table_schema = 'sis_cuipo'
       AND (table_name = 'cuipo_plantilla_distrito_2025_vf' 
-           OR table_name = 'base_de_ejecucion_presupuestal_31032025'
+           OR table_name = 'base_de_ejecucion_presupuestal_30062025'
            OR table_name LIKE 'cuipo2%')
       ORDER BY table_name;
     `;
@@ -224,7 +225,7 @@ async function procesarParte1(req, res) {
 
     // 1. Validar existencia de todas las tablas necesarias
     const tablasAValidar = [
-      { schema: process.env.DB_SCHEMA, name: 'base_de_ejecucion_presupuestal_31032025' },
+      { schema: process.env.DB_SCHEMA, name: 'base_de_ejecucion_presupuestal_30062025' },
       { schema: process.env.DB_SCHEMA, name: 'cuipo_plantilla_distrito_2025_vf' },
       { schema: process.env.DB_SCHEMA, name: 'fuentes_cuipo' }
     ];
@@ -336,7 +337,7 @@ async function procesarParte2(req, res) {
             { schema: process.env.DB_SCHEMA, name: 'dependencias' },
             { schema: process.env.DB_SCHEMA, name: 'terceros' },
             { schema: process.env.DB_SCHEMA, name: 'estapublicos' },
-            { schema: process.env.DB_SCHEMA, name: 'base_de_ejecucion_presupuestal_31032025' } 
+            { schema: process.env.DB_SCHEMA, name: 'base_de_ejecucion_presupuestal_30062025' } 
         ];
 
         for (const tablaInfo of tablasAValidar) {
@@ -351,18 +352,18 @@ async function procesarParte2(req, res) {
 
         // --- ¡NUEVA LÓGICA AÑADIDA / MODIFICADA! ---
         // Paso 1: Copiar 'centro_gestor' y 'proyecto' desde la tabla base a la plantilla
-        // Asumo que 'base_de_ejecucion_presupuestal_31032025' contiene los campos 'centro_gestor' y 'proyecto'
+        // Asumo que 'base_de_ejecucion_presupuestal_30062025' contiene los campos 'centro_gestor' y 'proyecto'
         // que necesitan ser transferidos a 'cuipo_plantilla_distrito_2025_vf'.
         // Si 'proyecto' también se llena en Parte 2, inclúyelo aquí también.
 
-        console.log("Copiando 'centro_gestor' y 'proyecto' desde base_de_ejecucion_presupuestal_31032025 a cuipo_plantilla_distrito_2025_vf...");
+        console.log("Copiando 'centro_gestor' y 'proyecto' desde base_de_ejecucion_presupuestal_30062025 a cuipo_plantilla_distrito_2025_vf...");
         const copyCentroGestorProyectoQuery = `
             UPDATE ${process.env.DB_SCHEMA}."cuipo_plantilla_distrito_2025_vf" AS dest
             SET
                 centro_gestor = base.centro_gestor,
                 proyecto = base.proyecto -- Asegúrate de copiar 'proyecto' también si es necesario aquí
             FROM
-                ${process.env.DB_SCHEMA}."base_de_ejecucion_presupuestal_31032025" AS base
+                ${process.env.DB_SCHEMA}."base_de_ejecucion_presupuestal_30062025" AS base
             WHERE
                 dest.id = base.id
                 AND (dest.centro_gestor IS DISTINCT FROM base.centro_gestor OR dest.proyecto IS DISTINCT FROM base.proyecto); -- Solo actualizar si hay cambios
@@ -502,7 +503,7 @@ async function procesarParte3(req, res) {
         const tablasAValidar = [
             { schema: process.env.DB_SCHEMA, name: 'cuipo_plantilla_distrito_2025_vf' },
             { schema: process.env.DB_SCHEMA, name: 'pospre_con_cpc_y_listas' },
-            { schema: process.env.DB_SCHEMA, name: 'base_de_ejecucion_presupuestal_31032025' } 
+            { schema: process.env.DB_SCHEMA, name: 'base_de_ejecucion_presupuestal_30062025' } 
         ];
 
         for (const tablaInfo of tablasAValidar) {
@@ -517,13 +518,13 @@ async function procesarParte3(req, res) {
 
         // --- ¡LÓGICA CORREGIDA PARA COPIAR 'posicion_presupuestaria' A 'pospre'! ---
         // Paso 1: Copiar 'posicion_presupuestaria' desde la tabla base a 'pospre' en la plantilla
-        console.log("Copiando 'posicion_presupuestaria' desde base_de_ejecucion_presupuestal_31032025 a 'pospre' en cuipo_plantilla_distrito_2025_vf...");
+        console.log("Copiando 'posicion_presupuestaria' desde base_de_ejecucion_presupuestal_30062025 a 'pospre' en cuipo_plantilla_distrito_2025_vf...");
         const copyPospreQuery = `
             UPDATE ${process.env.DB_SCHEMA}."cuipo_plantilla_distrito_2025_vf" AS dest
             SET
                 pospre = base.posicion_presupuestaria -- Usamos 'posicion_presupuestaria' del origen
             FROM
-                ${process.env.DB_SCHEMA}."base_de_ejecucion_presupuestal_31032025" AS base
+                ${process.env.DB_SCHEMA}."base_de_ejecucion_presupuestal_30062025" AS base
             WHERE
                 dest.id = base.id
                 AND (dest.pospre IS DISTINCT FROM base.posicion_presupuestaria); -- Solo actualizar si hay cambios
@@ -654,7 +655,7 @@ async function procesarParte4(req, res) {
         const tablasAValidar = [
             { schema: process.env.DB_SCHEMA, name: 'cuipo_plantilla_distrito_2025_vf' },
             { schema: process.env.DB_SCHEMA, name: 'proyectos' },
-            { schema: process.env.DB_SCHEMA, name: 'base_de_ejecucion_presupuestal_31032025' } // Asegurarse de que la tabla base esté validada aquí
+            { schema: process.env.DB_SCHEMA, name: 'base_de_ejecucion_presupuestal_30062025' } // Asegurarse de que la tabla base esté validada aquí
         ];
 
         for (const tablaInfo of tablasAValidar) {
@@ -669,13 +670,13 @@ async function procesarParte4(req, res) {
 
         // --- ¡NUEVA LÓGICA AÑADIDA! ---
         // Paso 1: Copiar 'proyecto' desde la tabla base a 'proyecto' en la plantilla
-        console.log("Copiando 'proyecto' desde base_de_ejecucion_presupuestal_31032025 a 'proyecto' en cuipo_plantilla_distrito_2025_vf...");
+        console.log("Copiando 'proyecto' desde base_de_ejecucion_presupuestal_30062025 a 'proyecto' en cuipo_plantilla_distrito_2025_vf...");
         const copyProyectoQuery = `
             UPDATE ${process.env.DB_SCHEMA}."cuipo_plantilla_distrito_2025_vf" AS dest
             SET
                 proyecto = base.proyecto -- Asume que el campo se llama 'proyecto' en la tabla base también
             FROM
-                ${process.env.DB_SCHEMA}."base_de_ejecucion_presupuestal_31032025" AS base
+                ${process.env.DB_SCHEMA}."base_de_ejecucion_presupuestal_30062025" AS base
             WHERE
                 dest.id = base.id
                 AND (dest.proyecto IS DISTINCT FROM base.proyecto); -- Solo actualizar si hay cambios
@@ -780,7 +781,7 @@ async function procesarParte5(req, res) {
 
         const tablasAValidar = [
             { schema: process.env.DB_SCHEMA, name: 'cuipo_plantilla_distrito_2025_vf' },
-            { schema: process.env.DB_SCHEMA, name: 'base_de_ejecucion_presupuestal_31032025' } // Asegurarse de que la tabla base esté validada aquí
+            { schema: process.env.DB_SCHEMA, name: 'base_de_ejecucion_presupuestal_30062025' } // Asegurarse de que la tabla base esté validada aquí
         ];
 
         for (const tablaInfo of tablasAValidar) {
@@ -795,13 +796,13 @@ async function procesarParte5(req, res) {
 
         // --- ¡NUEVA LÓGICA AÑADIDA! ---
         // Paso 1: Copiar 'area_funcional' desde la tabla base a 'area_funcional' en la plantilla
-        console.log("Copiando 'area_funcional' desde base_de_ejecucion_presupuestal_31032025 a 'area_funcional' en cuipo_plantilla_distrito_2025_vf...");
+        console.log("Copiando 'area_funcional' desde base_de_ejecucion_presupuestal_30062025 a 'area_funcional' en cuipo_plantilla_distrito_2025_vf...");
         const copyAreaFuncionalQuery = `
             UPDATE ${process.env.DB_SCHEMA}."cuipo_plantilla_distrito_2025_vf" AS dest
             SET
                 area_funcional = base.area_funcional -- Asume que el campo se llama 'area_funcional' en la tabla base también
             FROM
-                ${process.env.DB_SCHEMA}."base_de_ejecucion_presupuestal_31032025" AS base
+                ${process.env.DB_SCHEMA}."base_de_ejecucion_presupuestal_30062025" AS base
             WHERE
                 dest.id = base.id
                 AND (dest.area_funcional IS DISTINCT FROM base.area_funcional); -- Solo actualizar si hay cambios
@@ -905,6 +906,158 @@ async function procesarParte5(req, res) {
     }
 }
 
+// CONTROLADOR PARA LA PARTE 6 - SECTOR SALUD Y EDUCACION
+async function procesarParte6(req, res) {
+    const client = await pool.connect(); // Obtener una conexión del pool
+
+    try {
+        await client.query('BEGIN'); // Iniciar una transacción
+
+        console.log("Iniciando procesamiento de Parte 6: Detalle Sectorial y Programación del Gasto...");
+
+        // 1. Validar existencia de todas las tablas necesarias
+        const tablasAValidar = [
+            { schema: process.env.DB_SCHEMA, name: 'cuipo_plantilla_distrito_2025_vf' },
+            { schema: process.env.DB_SCHEMA, name: 'detalle_sectorial_educacion' },
+            { schema: process.env.DB_SCHEMA, name: 'detalle_sectorial_salud' },
+            { schema: process.env.DB_SCHEMA, name: 'sectorial_gastos_salud' }
+        ];
+
+        for (const tablaInfo of tablasAValidar) {
+            const check = await client.query(
+                `SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = $1 AND table_schema = $2)`,
+                [tablaInfo.name, tablaInfo.schema]
+            );
+            if (!check.rows[0].exists) {
+                throw new Error(`Tabla "${tablaInfo.schema}.${tablaInfo.name}" no existe en la base de datos o en el esquema.`);
+            }
+        }
+
+        // --- UPDATE Principal para Parte 6 ---
+        // Calcula 'detalle_sectorial', 'extrae_detalle_sectorial' y 'detalle_sectorial_prog_gasto'
+        const updateQuery = `
+            WITH source_data AS (
+                SELECT
+                    cp.id,
+                    cp.secretaria,
+                    -- Paso 1: Calcular el 'detalle_sectorial' base que se asignará a la plantilla
+                    CASE
+                        WHEN TRIM(cp.secretaria) = 'SECRETARÍA DE EDUCACIÓN' THEN
+                            (SELECT TRIM(ed.detalle_sectorial) FROM ${process.env.DB_SCHEMA}.detalle_sectorial_educacion AS ed WHERE TRIM(ed.sector) = 'EDUCACION' LIMIT 1)
+                        WHEN TRIM(cp.secretaria) = 'SECRETARÍA DE SALUD' THEN
+                            (SELECT TRIM(sd.detalle_sectorial) FROM ${process.env.DB_SCHEMA}.detalle_sectorial_salud AS sd WHERE TRIM(sd.sector) = 'SALUD' LIMIT 1)
+                        ELSE NULL
+                    END AS new_detalle_sectorial_assigned
+                FROM
+                    ${process.env.DB_SCHEMA}."cuipo_plantilla_distrito_2025_vf" AS cp
+            ),
+            -- Ahora, sobre los datos ya con el detalle_sectorial asignado, calculamos extrae_detalle_sectorial y luego detalle_sectorial_prog_gasto
+            calculated_final_data AS (
+                SELECT
+                    sd.id,
+                    sd.new_detalle_sectorial_assigned,
+                    -- Paso 2: Calcular 'extrae_detalle_sectorial'
+                    -- Extraer los primeros 8 o 9 caracteres antes del primer ' - '
+                    COALESCE(
+                        (
+                            SELECT
+                                CASE
+                                    -- Intenta con 8 caracteres primero (ej. 22.01.01)
+                                    WHEN
+                                        LENGTH(SUBSTRING(TRIM(sd.new_detalle_sectorial_assigned) FROM 1 FOR POSITION(' - ' IN TRIM(sd.new_detalle_sectorial_assigned)) - 1)) = 8
+                                        AND EXISTS (SELECT 1 FROM ${process.env.DB_SCHEMA}.detalle_sectorial_educacion WHERE TRIM(codigo) = SUBSTRING(TRIM(sd.new_detalle_sectorial_assigned) FROM 1 FOR 8))
+                                        THEN SUBSTRING(TRIM(sd.new_detalle_sectorial_assigned) FROM 1 FOR 8)
+                                    WHEN
+                                        LENGTH(SUBSTRING(TRIM(sd.new_detalle_sectorial_assigned) FROM 1 FOR POSITION(' - ' IN TRIM(sd.new_detalle_sectorial_assigned)) - 1)) = 8
+                                        AND EXISTS (SELECT 1 FROM ${process.env.DB_SCHEMA}.detalle_sectorial_salud WHERE TRIM(codigo) = SUBSTRING(TRIM(sd.new_detalle_sectorial_assigned) FROM 1 FOR 8))
+                                        THEN SUBSTRING(TRIM(sd.new_detalle_sectorial_assigned) FROM 1 FOR 8)
+                                    -- Si no es 8, intenta con 9 (ej. 19.02.100)
+                                    WHEN
+                                        LENGTH(SUBSTRING(TRIM(sd.new_detalle_sectorial_assigned) FROM 1 FOR POSITION(' - ' IN TRIM(sd.new_detalle_sectorial_assigned)) - 1)) = 9
+                                        AND EXISTS (SELECT 1 FROM ${process.env.DB_SCHEMA}.detalle_sectorial_salud WHERE TRIM(codigo) = SUBSTRING(TRIM(sd.new_detalle_sectorial_assigned) FROM 1 FOR 9))
+                                        THEN SUBSTRING(TRIM(sd.new_detalle_sectorial_assigned) FROM 1 FOR 9)
+                                    ELSE '0' -- Si no cumple ninguna condición, o el formato es incorrecto, es '0'
+                                END
+                        ),
+                        '0' -- Si new_detalle_sectorial_assigned es NULL o vacío, también es '0'
+                    ) AS new_extrae_detalle_sectorial,
+                    sd.secretaria
+                FROM
+                    source_data AS sd
+            )
+            UPDATE ${process.env.DB_SCHEMA}."cuipo_plantilla_distrito_2025_vf" AS dest
+            SET
+                detalle_sectorial = cfd.new_detalle_sectorial_assigned,
+                extrae_detalle_sectorial = cfd.new_extrae_detalle_sectorial,
+                -- Paso 3: Calcular 'detalle_sectorial_prog_gasto' (solo aplica para Salud)
+                detalle_sectorial_prog_gasto = COALESCE(
+                    (SELECT TRIM(sgs.codigo_programacion_del_gasto)
+                     FROM ${process.env.DB_SCHEMA}.sectorial_gastos_salud AS sgs
+                     WHERE TRIM(cfd.new_extrae_detalle_sectorial) = TRIM(sgs.codigo_ejecucion_del_gasto)
+                       AND TRIM(cfd.secretaria) = 'SECRETARÍA DE SALUD' -- Solo aplicar si es de salud
+                     LIMIT 1),
+                    '' -- Si no encuentra coincidencia o no es de salud, dejar vacío
+                )
+            FROM calculated_final_data AS cfd
+            WHERE dest.id = cfd.id;
+        `;
+
+        console.log("Ejecutando UPDATE para 'detalle_sectorial', 'extrae_detalle_sectorial' y 'detalle_sectorial_prog_gasto'...");
+        const resultUpdates = await client.query(updateQuery);
+        console.log(`UPDATE de Parte 6 completado. Registros actualizados: ${resultUpdates.rowCount}`);
+
+        await client.query('COMMIT'); // Confirmar la transacción
+
+        console.log(`Parte 6 completada. Total registros afectados: ${resultUpdates.rowCount}`);
+
+        return res.status(200).json({
+            success: true,
+            message: "Parte 6 procesada exitosamente: Campos de detalle_sectorial, extrae_detalle_sectorial y detalle_sectorial_prog_gasto actualizados.",
+            registros_afectados: resultUpdates.rowCount,
+            detalles: {
+                acciones_realizadas: [
+                    "Cálculo y llenado de 'detalle_sectorial' basado en 'secretaria' y tablas 'detalle_sectorial_educacion'/'detalle_sectorial_salud' (campo 'sector').",
+                    "Cálculo y llenado de 'extrae_detalle_sectorial' extrayendo el prefijo numérico de 'detalle_sectorial' (8 o 9 caracteres) y validándolo contra los códigos de las tablas de detalle.",
+                    "Cálculo y llenado de 'detalle_sectorial_prog_gasto' basado en 'extrae_detalle_sectorial' y la tabla 'sectorial_gastos_salud' (solo para 'SECRETARÍA DE SALUD')."
+                ]
+            }
+        });
+
+    } catch (error) {
+        await client.query('ROLLBACK'); // Revertir la transacción en caso de error
+        console.error('❌ Error en procesarParte6:', error.message);
+
+        let userMessage = "Error desconocido al procesar Parte 6.";
+        if (error.message.includes("no existe en la base de datos o en el esquema")) {
+            userMessage = `Una de las tablas necesarias no fue encontrada: ${error.message}`;
+        } else if (error.message.includes("column") && error.message.includes("does not exist")) {
+            userMessage = `Error de columna. Posiblemente un nombre de columna incorrecto en la base de datos: ${error.message}`;
+        } else if (error.message.includes("invalid input syntax for type integer")) {
+            userMessage = `Error de formato de datos. Asegúrese de que los datos sean compatibles con las operaciones realizadas.`;
+        } else {
+            userMessage = error.message;
+        }
+
+        return res.status(500).json({
+            success: false,
+            error: "Error al procesar Parte 6",
+            detalles: userMessage,
+            solucion_sugerida: [
+                `Verifique que las tablas ${tablasAValidar.map(t => `${t.schema}.${t.name}`).join(', ')} existan.`,
+                "Asegúrese de que los nombres de las columnas en todas las tablas ('secretaria', 'detalle_sectorial', 'codigo', 'sector', 'codigo_ejecucion_del_gasto', 'codigo_programacion_del_gasto') sean correctos y que los tipos de datos sean compatibles.",
+                "Confirme que los valores en 'secretaria' de la plantilla coinciden *exactamente* con 'SECRETARÍA DE EDUCACIÓN' o 'SECRETARÍA DE SALUD'.",
+                "Confirme que los valores en 'sector' de las tablas de detalle sean *exactamente* 'EDUCACION' o 'SALUD' respectivamente.",
+                "Verifique el formato de los datos en 'detalle_sectorial' de las tablas de detalle. Deben iniciar con un código numérico seguido de ' - ' (ej. '19.01.17 - ABC', '19.02.100 - DEF').",
+                "Asegúrese de que los códigos en `detalle_sectorial_educacion.codigo` y `detalle_sectorial_salud.codigo` sean los mismos que la parte numérica al inicio de `detalle_sectorial` en esas mismas tablas (ej. si detalle_sectorial es '22.01.01 - ...', codigo es '22.01.01')."
+            ]
+        });
+    } finally {
+        if (client) {
+            client.release(); // Liberar la conexión de la pool
+        }
+    }
+}
+
 // CONTROLADOR PARA ENVIAR LOS DATOS DE PRESUPUESTO DE LA TABLA BASE A LA PANTILLA
 async function copiarDatosPresupuestales(req, res) {
   const client = await pool.connect(); // Obtener una conexión del pool
@@ -921,7 +1074,7 @@ async function copiarDatosPresupuestales(req, res) {
   try {
     await client.query('BEGIN'); // Iniciar una transacción
 
-    const tablaOrigen = 'base_de_ejecucion_presupuestal_31032025';
+    const tablaOrigen = 'base_de_ejecucion_presupuestal_30062025';
     const tablaDestino = 'cuipo_plantilla_distrito_2025_vf';
     const schema = process.env.DB_SCHEMA;
 
@@ -1077,7 +1230,17 @@ async function getCpcOptions(req, res) {
 }
 
 async function actualizarFila(req, res) {
-    const { id, codigo_y_nombre_del_cpc, cpc_cuipo, validador_cpc } = req.body;
+    // Desestructurar todos los campos relevantes que pueden llegar en el body
+    const { 
+        id, 
+        codigo_y_nombre_del_cpc, 
+        cpc_cuipo, 
+        validador_cpc,
+        codigo_y_nombre_del_producto_mga, // ¡NUEVO!
+        producto_cuipo,                   // ¡NUEVO!
+        validador_del_producto            // ¡NUEVO!
+    } = req.body;
+
     let client;
 
     if (!id) {
@@ -1093,6 +1256,7 @@ async function actualizarFila(req, res) {
         const values = [];
         let paramIndex = 1;
 
+        // Lógica para campos CPC
         if (codigo_y_nombre_del_cpc !== undefined) {
             updates.push(`codigo_y_nombre_del_cpc = $${paramIndex++}`);
             values.push(codigo_y_nombre_del_cpc);
@@ -1105,6 +1269,21 @@ async function actualizarFila(req, res) {
             updates.push(`validador_cpc = $${paramIndex++}`);
             values.push(validador_cpc);
         }
+
+        // --- ¡NUEVA LÓGICA para campos de Producto MGA! ---
+        if (codigo_y_nombre_del_producto_mga !== undefined) {
+            updates.push(`codigo_y_nombre_del_producto_mga = $${paramIndex++}`);
+            values.push(codigo_y_nombre_del_producto_mga);
+        }
+        if (producto_cuipo !== undefined) {
+            updates.push(`producto_cuipo = $${paramIndex++}`);
+            values.push(producto_cuipo);
+        }
+        if (validador_del_producto !== undefined) {
+            updates.push(`validador_del_producto = $${paramIndex++}`);
+            values.push(validador_del_producto);
+        }
+        // ----------------------------------------------------
 
         if (updates.length === 0) {
             await client.query('ROLLBACK');
@@ -1203,6 +1382,144 @@ async function getProductosMgaOptions(req, res) {
   }
 };
 
+// CONTROLADOR PARA OBTENER LA CANTIDAD DE PROYECTOS POS SECRETARIA
+async function getProyectosPorSecretariaController(req, res) {
+    try {
+        const { success, data, message: modelMessage, error: modelError } = await estadisticasModel.getProyectosPorSecretaria();
+
+        if (!success) {
+            return res.status(500).json({ success: false, message: modelMessage || "Error del servidor", error: modelError });
+        }
+
+        return res.status(200).json({ success: true, data });
+    } catch (error) {
+        console.error("Error en el controlador getProyectosPorSecretariaController:", error);
+        return res.status(500).json({ success: false, message: "Error interno del servidor al obtener proyectos por secretaría." });
+    }
+}
+
+// CONTROLADOR PARA OBTENER EL DETALLE DE CADA PROYECTO POR SECRETARIA
+async function getDetalleProyectoController(req, res) {
+    try {
+        const { secretaria, proyecto } = req.query; // Obtener secretaria y proyecto de los query parameters
+        
+        // Decodificar los parámetros si vienen codificados en la URL
+        const decodedSecretaria = secretaria ? decodeURIComponent(secretaria) : null;
+        const decodedProyecto = proyecto ? decodeURIComponent(proyecto) : null;
+
+        const { success, data, message: modelMessage, error: modelError } = 
+            await estadisticasModel.getDetalleProyecto(decodedSecretaria, decodedProyecto);
+
+        if (!success) {
+            return res.status(500).json({ success: false, message: modelMessage || "Error del servidor", error: modelError });
+        }
+
+        return res.status(200).json({ success: true, data });
+    } catch (error) {
+        console.error("Error en el controlador getDetalleProyectoController:", error);
+        return res.status(500).json({ success: false, message: "Error interno del servidor al obtener detalle del proyecto." });
+    }
+}
+
+// CONTROLADOR PARA EL CONTEO DE LAS VALIDACIONES
+async function getValidationSummary(req, res) {
+    let client;
+    try {
+        client = await pool.connect();
+
+        // Consulta para CPC - ESTAS CONSULTAS ESTÁN CORRECTAS SEGÚN TU VALIDACIÓN
+        const cpcQuery = `
+            SELECT
+                COUNT(*) FILTER (WHERE validador_cpc = 'CPC OK') AS cpc_ok,
+                COUNT(*) FILTER (WHERE validador_cpc IS NULL OR validador_cpc = '') AS cpc_faltantes
+            FROM ${process.env.DB_SCHEMA}."cuipo_plantilla_distrito_2025_vf";
+        `;
+        const cpcResult = await client.query(cpcQuery);
+        const cpcSummary = cpcResult.rows[0];
+
+        // Consulta para Producto MGA - ESTAS CONSULTAS ESTÁN CORRECTAS SEGÚN TU VALIDACIÓN
+        const productQuery = `
+            SELECT
+                COUNT(*) FILTER (WHERE validador_del_producto = 'PRODUCTO OK') AS producto_ok,
+                COUNT(*) FILTER (WHERE validador_del_producto IS NULL OR validador_del_producto = '') AS producto_faltantes
+            FROM ${process.env.DB_SCHEMA}."cuipo_plantilla_distrito_2025_vf";
+        `;
+        const productResult = await client.query(productQuery);
+        const productSummary = productResult.rows[0];
+
+        res.json({
+            success: true,
+            data: {
+                cpc: {
+                    ok: parseInt(cpcSummary.cpc_ok, 10),
+                    faltantes: parseInt(cpcSummary.cpc_faltantes, 10)
+                },
+                producto: {
+                    ok: parseInt(productSummary.producto_ok, 10),
+                    faltantes: parseInt(productSummary.producto_faltantes, 10)
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Error al obtener resumen de validaciones:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error interno del servidor al obtener resumen de validaciones.',
+            error_details: error.message
+        });
+    } finally {
+        if (client) {
+            client.release();
+        }
+    }
+}
+
+async function getMissingDetails(req, res) {
+    const { tipo_validador } = req.params;
+    let client;
+
+    let validadorColumn = '';
+    if (tipo_validador === 'cpc') {
+        validadorColumn = 'validador_cpc';
+    } else if (tipo_validador === 'producto') {
+        validadorColumn = 'validador_del_producto';
+    } else {
+        return res.status(400).json({ success: false, message: "Tipo de validador no válido." });
+    }
+
+    try {
+        client = await pool.connect();
+
+        const query = `
+            SELECT
+                secretaria,   -- ¡CAMBIO AQUÍ! Nombre de columna corregido
+                nombre_proyecto AS nombre_del_proyecto_o_codigo_sap -- ¡CAMBIO AQUÍ! Nombre de columna corregido
+            FROM ${process.env.DB_SCHEMA}."cuipo_plantilla_distrito_2025_vf"
+            WHERE ${validadorColumn} IS NULL OR ${validadorColumn} = '';
+        `;
+
+        const { rows } = await client.query(query);
+
+        res.json({
+            success: true,
+            data: rows
+        });
+
+    } catch (error) {
+        console.error('Error al obtener detalles de faltantes:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error interno del servidor al obtener detalles de faltantes.',
+            error_details: error.message
+        });
+    } finally {
+        if (client) {
+            client.release();
+        }
+    }
+}
+
 
 module.exports = {
   uploadExcel,
@@ -1214,8 +1531,13 @@ module.exports = {
   procesarParte3,
   procesarParte4,
   procesarParte5,
+  procesarParte6,
   copiarDatosPresupuestales,
   getCpcOptions,
   actualizarFila,
-  getProductosMgaOptions
+  getProductosMgaOptions,
+  getProyectosPorSecretariaController,
+  getDetalleProyectoController,
+  getValidationSummary,
+  getMissingDetails
 }
