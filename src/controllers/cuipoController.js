@@ -114,7 +114,7 @@ async function uploadExcel(req, res) {
   });
 }
 
-// Controlador para listar todas las tablas en el esquema sis_cuipo
+// Controlador para listar todas las tablas en el esquema sis_catastro_verificacion
 async function listTables(req, res) {
   try {
     const result = await pool.query(`
@@ -177,7 +177,7 @@ async function tablasDisponibles(req, res) {
     const queryTablas = `
       SELECT table_name 
       FROM information_schema.tables 
-      WHERE table_schema = 'sis_cuipo'
+      WHERE table_schema = 'sis_catastro_verificacion'
       AND (table_name = 'cuipo_plantilla_distrito_2025_vf' 
            OR table_name = 'base_de_ejecucion_presupuestal_30062025'
            OR table_name LIKE 'cuipo2%')
@@ -192,7 +192,7 @@ async function tablasDisponibles(req, res) {
     
     if (tabla && tablas.includes(tabla)) {
       // Limitar a 1000 registros para no sobrecargar
-      const queryDatos = `SELECT * FROM sis_cuipo.${tabla};`;
+      const queryDatos = `SELECT * FROM sis_catastro_verificacion.${tabla};`;
       const resultDatos = await pool.query(queryDatos);
       datosTabla = resultDatos.rows;
     }
@@ -1342,7 +1342,7 @@ async function getProductosMgaOptions(req, res) {
         productos_del_proyecto,
         cod_pdto_y_nombre
       FROM 
-        sis_cuipo.productos_por_proyecto
+        sis_catastro_verificacion.productos_por_proyecto
       WHERE 
         codigo_sap = $1
       ORDER BY 
