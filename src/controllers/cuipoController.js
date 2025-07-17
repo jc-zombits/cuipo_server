@@ -137,30 +137,62 @@ async function listTables(req, res) {
 async function getTableData(req, res) {
   const { tableName } = req.params;
 
+  const userRole = req.user?.role || req.user?.roleName;
+  const userDependencyId = req.user?.id_dependency_user;
+
+  console.log("📥 Tabla solicitada:", tableName);
+  console.log("🔑 Rol del usuario:", userRole);
+  console.log("🏢 ID de dependencia del usuario:", userDependencyId);
+
   if (!tableName) {
     return res.status(400).json({ error: "Nombre de tabla no proporcionado" });
   }
 
   try {
     let querySQL = '';
+    let whereClause = '';
 
-    // Si la tabla es "cuipo_plantilla_distrito_2025_vf", aplica el ordenamiento especial
+    // Si el usuario tiene rol 'user' o 'querry' y accede a la tabla restringida
+    if (
+      ["user", "querry"].includes(userRole?.toLowerCase()) &&
+      tableName === "cuipo_plantilla_distrito_2025_vf" &&
+      userDependencyId
+    ) {
+      console.log("🔒 Aplicando filtro por dependencia para el usuario...");
+
+      const dependencyQuery = await pool.query(
+        `SELECT dependency_name FROM tbl_dependency WHERE id_dependency = $1`,
+        [userDependencyId]
+      );
+
+      if (dependencyQuery.rows.length > 0) {
+        const dependencyName = dependencyQuery.rows[0].dependency_name;
+        const cleanedDependencyName = dependencyName.replace(/'/g, "''");
+
+        console.log("✅ Nombre de dependencia encontrada:", dependencyName);
+
+        whereClause = `WHERE secretaria = '${cleanedDependencyName}'`;
+      } else {
+        console.warn(`⚠️ No se encontró dependency_name para id: ${userDependencyId}`);
+        return res.status(200).json({ rows: [] });
+      }
+    }
+
+    // Construir consulta SQL final
     if (tableName === "cuipo_plantilla_distrito_2025_vf") {
-      // Importante: Usamos SELECT * para obtener todos los campos,
-      // y luego aplicamos la lógica de ordenamiento.
       querySQL = `
         SELECT *
         FROM ${process.env.DB_SCHEMA}."${tableName}"
+        ${whereClause}
         ORDER BY
-            CASE WHEN fondo = 'Totales' THEN 1 ELSE 0 END, -- Fila 'Totales' al final
-            id ASC; -- Luego ordena por ID ascendente para el resto de las filas
+          CASE WHEN fondo = 'Totales' THEN 1 ELSE 0 END,
+          id ASC;
       `;
     } else {
-      // Para cualquier otra tabla, simplemente selecciona todos los datos sin un orden específico
-      querySQL = `
-        SELECT * FROM ${process.env.DB_SCHEMA}."${tableName}";
-      `;
+      querySQL = `SELECT * FROM ${process.env.DB_SCHEMA}."${tableName}";`;
     }
+
+    console.log("🧠 Ejecutando query SQL:\n", querySQL);
 
     const result = await pool.query(querySQL);
 
@@ -174,6 +206,7 @@ async function getTableData(req, res) {
 // CONTROLADOR PARA OBTENER LAS TABLAS DISPONIBLES PARA EJECUCION
 async function tablasDisponibles(req, res) {
   try {
+    console.log('📌 Entró a controlador tablasDisponibles');
     const queryTablas = `
       SELECT table_name 
       FROM information_schema.tables 
@@ -183,20 +216,41 @@ async function tablasDisponibles(req, res) {
            OR table_name LIKE 'cuipo2%')
       ORDER BY table_name;
     `;
-    
+
     const resultTablas = await pool.query(queryTablas);
     const tablas = resultTablas.rows.map(row => row.table_name);
 
     const { tabla } = req.query;
     let datosTabla = null;
-    
-    if (tabla && tablas.includes(tabla)) {
-      // Limitar a 1000 registros para no sobrecargar
-      const queryDatos = `SELECT * FROM sis_catastro_verificacion.${tabla};`;
-      const resultDatos = await pool.query(queryDatos);
-      datosTabla = resultDatos.rows;
-    }
 
+    if (tabla && tablas.includes(tabla)) {
+      let queryDatos;
+
+      // Aplica filtro por secretaría si el usuario tiene rol "user"
+      if (
+        req.user &&
+        req.user.role === 'user' &&
+        tabla === 'cuipo_plantilla_distrito_2025_vf'
+      ) {
+        const secretaria = req.user.dependencyName;
+
+        queryDatos = `
+          SELECT *
+          FROM sis_catastro_verificacion.${tabla}
+          WHERE secretaria = $1
+          LIMIT 1000;
+        `;
+        const resultDatos = await pool.query(queryDatos, [secretaria]);
+        datosTabla = resultDatos.rows;
+
+      } else {
+        // Sin filtro
+        queryDatos = `SELECT * FROM sis_catastro_verificacion.${tabla} LIMIT 1000;`;
+        const resultDatos = await pool.query(queryDatos);
+        datosTabla = resultDatos.rows;
+      }
+    }
+    console.log('✅ tablas disponibles que se envían:', tablas);
     return res.status(200).json({
       success: true,
       tablasDisponibles: tablas,
@@ -212,7 +266,7 @@ async function tablasDisponibles(req, res) {
       details: error.message 
     });
   }
-};
+}
 
 // CONTROLADOR PARA LA PARTE 1 - FONDO
 async function procesarParte1(req, res) {

@@ -20,6 +20,7 @@ const {
     getValidationSummary,
     getMissingDetails
 } = require("../controllers/cuipoController");
+const { verifyTokenInfo } = require('../middlewares/verifyToken');
 
 // Subir archivo Excel
 router.post("/upload", uploadExcel);
@@ -31,7 +32,7 @@ router.get("/tables", listTables);
 router.get("/tables/:tableName", getTableData);
 
 // Ver las tablas disponibles en ejecucion
-router.get("/ejecucion/obtener-tablas-disponibles", tablasDisponibles);
+router.get("/ejecucion/obtener-tablas-disponibles", verifyTokenInfo, tablasDisponibles);
 
 // Procesar la parte 1 - Fondo
 router.post('/ejecucion/procesar/parte1', procesarParte1);
