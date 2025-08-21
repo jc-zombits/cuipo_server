@@ -24,14 +24,67 @@ const getUserByEmail = async (email) => {
 
 const verifyTokenInfo = async (req, res, next) => {
   try {
+    console.log('\n=== INICIO DE VERIFICACIÓN DE TOKEN ===');
+    console.log('Headers completos:', req.headers);
+    
     const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ error: 'Token no proporcionado' });
+    if (!token) {
+      console.log('ERROR - Token no proporcionado en headers');
+      return res.status(401).json({
+        error: 'Token no proporcionado',
+        message: 'No se encontró el token de autorización'
+      });
+    }
+    console.log('Token recibido (primeros 20 caracteres):', token.substring(0, 20) + '...');
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await getUserByEmail(decoded.email);
-    if (!user) return res.status(401).json({ error: 'Usuario no encontrado' });
+    console.log('Token decodificado:', {
+      id: decoded.id,
+      email: decoded.email,
+      role: decoded.role,
+      id_role_user: decoded.id_role_user,
+      program: decoded.program
+    });
 
-    req.user = {
+    const user = await getUserByEmail(decoded.email);
+    if (!user) {
+      console.log('ERROR - Usuario no encontrado en base de datos');
+      return res.status(401).json({
+        error: 'Usuario no encontrado',
+        message: 'El usuario asociado al token no existe en la base de datos'
+      });
+    }
+    
+    console.log('Información del usuario en BD:', {
+      id: user.id_user,
+      email: user.email_user,
+      role: user.rol_name,
+      id_role_user: user.id_role_user,
+      dependency: user.user_secretaria_name
+    });
+
+    // Validar información crítica del usuario
+    if (!user.id_role_user) {
+      console.log('ERROR - Rol de usuario no definido en BD');
+      return res.status(401).json({
+        error: 'Información de usuario incompleta',
+        message: 'El rol del usuario no está definido'
+      });
+    }
+
+    // Verificar coherencia entre token y BD
+    if (decoded.id_role_user !== user.id_role_user) {
+      console.log('ERROR - Discrepancia en rol de usuario entre token y BD:', {
+        tokenRole: decoded.id_role_user,
+        dbRole: user.id_role_user
+      });
+      return res.status(401).json({
+        error: 'Información inconsistente',
+        message: 'La información del usuario no coincide con los registros'
+      });
+    }
+
+    const userInfo = {
       id: user.id_user,
       email: user.email_user,
       name: user.name_user,
@@ -39,9 +92,18 @@ const verifyTokenInfo = async (req, res, next) => {
       id_role_user: user.id_role_user,
       id_dependency_user: user.id_dependency_user,
       dependencyName: user.user_secretaria_name,
-      program: user.id_programm_user
+      program: user.id_programm_user,
+      isAdmin: [1, 2].includes(user.id_role_user),
+      isJuanLaver: user.id_role_user === 1
     };
 
+    console.log('Información validada del usuario:', {
+      ...userInfo,
+      isAdmin: userInfo.isAdmin,
+      isJuanLaver: userInfo.isJuanLaver
+    });
+
+    req.user = userInfo;
     next();
   } catch (err) {
     console.error('Error en verifyTokenInfo middleware:', err);

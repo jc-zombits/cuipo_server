@@ -16,7 +16,7 @@ app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.use(cors({
   origin: function (origin, callback) {
     const allowedOrigins = [
-      'http://10.125.8.55:3005', // tu IP en red
+      'http://10.125.126.107:3005', // tu IP en red
       'http://localhost:3005',
     ];
     // Permitir solicitudes sin "origin" (como Postman)

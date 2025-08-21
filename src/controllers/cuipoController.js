@@ -33,6 +33,7 @@ function normalizeName(name) {
     .replace(/[^a-z0-9_]/g, "");
 }
 
+
 // Controlador para subir y procesar el archivo Excel
 async function uploadExcel(req, res) {
   upload(req, res, async function (err) {
@@ -238,14 +239,13 @@ async function tablasDisponibles(req, res) {
           SELECT *
           FROM sis_catastro_verificacion.${tabla}
           WHERE secretaria = $1
-          LIMIT 1000;
         `;
         const resultDatos = await pool.query(queryDatos, [secretaria]);
         datosTabla = resultDatos.rows;
 
       } else {
         // Sin filtro
-        queryDatos = `SELECT * FROM sis_catastro_verificacion.${tabla} LIMIT 1000;`;
+        queryDatos = `SELECT * FROM sis_catastro_verificacion.${tabla};`;
         const resultDatos = await pool.query(queryDatos);
         datosTabla = resultDatos.rows;
       }
@@ -1378,7 +1378,6 @@ async function actualizarFila(req, res) {
 }
 
 // CONTROLADOR DE PRODUCTO MGA
-// controllers/ejecucionController.js
 async function getProductosMgaOptions(req, res) {
   try {
     const { codigoSap } = req.query;
@@ -1436,16 +1435,127 @@ async function getProductosMgaOptions(req, res) {
   }
 };
 
+// NUEVO PARA VALIDAR EL PRODUCT MGA
+async function validarProductoController(req, res) {
+    try {
+        const { codigo_y_nombre_del_producto_mga } = req.body;
+
+        console.log('✅ Validando producto:', codigo_y_nombre_del_producto_mga);
+
+        // 1. Validar que venga el código
+        if (!codigo_y_nombre_del_producto_mga) {
+            return res.status(400).json({
+                success: false,
+                message: 'El código/nombre del producto MGA es requerido'
+            });
+        }
+
+        // 2. ✅ USAR LA MISMA TABLA QUE YA FUNCIONA: productos_por_proyecto
+        const query = `
+            SELECT 
+                productos_del_proyecto,
+                cod_pdto_y_nombre
+            FROM 
+                sis_catastro_verificacion.productos_por_proyecto
+            WHERE 
+                cod_pdto_y_nombre = $1
+            LIMIT 1;
+        `;
+
+        const result = await pool.query(query, [codigo_y_nombre_del_producto_mga]);
+
+        // 3. Lógica de validación SIMPLE
+        let validador_del_producto = 'PENDIENTE';
+        let es_valido = false;
+
+        if (result.rows.length > 0) {
+            // ✅ Producto existe en la tabla que ya usamos
+            validador_del_producto = 'PRODUCTO OK';
+            es_valido = true;
+        } else {
+            // ❌ Producto no encontrado
+            validador_del_producto = 'NO VALIDADO';
+            es_valido = false;
+        }
+
+        res.json({
+            success: true,
+            data: {
+                validador_del_producto,
+                es_valido,
+                producto_validado: codigo_y_nombre_del_producto_mga,
+                producto_codigo: result.rows[0]?.productos_del_proyecto || null
+            }
+        });
+
+    } catch (error) {
+        console.error('Error validando producto:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error interno al validar producto',
+            error: error.message
+        });
+    }
+}
+
 // CONTROLADOR PARA OBTENER LA CANTIDAD DE PROYECTOS POS SECRETARIA
 async function getProyectosPorSecretariaController(req, res) {
     try {
-        const { success, data, message: modelMessage, error: modelError } = await estadisticasModel.getProyectosPorSecretaria();
-
-        if (!success) {
-            return res.status(500).json({ success: false, message: modelMessage || "Error del servidor", error: modelError });
+        // Validación de autenticación y roles
+        if (!req.user || !req.user.id_role_user) {
+            console.log('ERROR - Usuario no autenticado o rol no definido:', {
+                user: req.user,
+                id_role_user: req.user?.id_role_user
+            });
+            return res.status(401).json({
+                success: false,
+                message: "Usuario no autenticado o rol no definido"
+            });
         }
 
-        return res.status(200).json({ success: true, data });
+        // Determinar si el usuario es admin o juanlaver
+        const isAdmin = [1, 2].includes(req.user.id_role_user);
+        const isJuanLaver = req.user.id_role_user === 1;
+
+        // Solo aplicar filtro de dependencia si no es admin ni juanlaver
+        const dependenciaUsuario = (!isAdmin && !isJuanLaver) ? req.user.dependencyName : null;
+
+        console.log('DEBUG - Procesando solicitud de proyectos por secretaría:', {
+            userId: req.user.id,
+            role: req.user.role,
+            id_role_user: req.user.id_role_user,
+            isAdmin,
+            isJuanLaver,
+            dependencyName: req.user.dependencyName,
+            appliedDependencia: dependenciaUsuario
+        });
+
+        const { success, data, message: modelMessage, error: modelError } = 
+            await estadisticasModel.getProyectosPorSecretaria(dependenciaUsuario);
+
+        if (!success) {
+            console.log('ERROR - Fallo al obtener proyectos por secretaría:', {
+                message: modelMessage,
+                error: modelError,
+                dependenciaUsuario
+            });
+            return res.status(500).json({
+                success: false,
+                message: modelMessage || "Error al procesar la consulta de proyectos",
+                error: modelError
+            });
+        }
+
+        console.log('INFO - Proyectos por secretaría obtenidos exitosamente:', {
+            totalRegistros: data?.length || 0,
+            filtroDependencia: dependenciaUsuario ? 'Aplicado' : 'No aplicado'
+        });
+
+        return res.status(200).json({
+            success: true,
+            data,
+            filteredByDependency: !!dependenciaUsuario
+        });
     } catch (error) {
         console.error("Error en el controlador getProyectosPorSecretariaController:", error);
         return res.status(500).json({ success: false, message: "Error interno del servidor al obtener proyectos por secretaría." });
@@ -1455,14 +1565,18 @@ async function getProyectosPorSecretariaController(req, res) {
 // CONTROLADOR PARA OBTENER EL DETALLE DE CADA PROYECTO POR SECRETARIA
 async function getDetalleProyectoController(req, res) {
     try {
-        const { secretaria, proyecto } = req.query; // Obtener secretaria y proyecto de los query parameters
-        
-        // Decodificar los parámetros si vienen codificados en la URL
+        const { secretaria, proyecto } = req.query;
+        const dependenciaUsuario = req.user?.dependencyName || null;
+
         const decodedSecretaria = secretaria ? decodeURIComponent(secretaria) : null;
         const decodedProyecto = proyecto ? decodeURIComponent(proyecto) : null;
 
         const { success, data, message: modelMessage, error: modelError } = 
-            await estadisticasModel.getDetalleProyecto(decodedSecretaria, decodedProyecto);
+            await estadisticasModel.getDetalleProyecto(
+                dependenciaUsuario,
+                decodedSecretaria,
+                decodedProyecto
+            );
 
         if (!success) {
             return res.status(500).json({ success: false, message: modelMessage || "Error del servidor", error: modelError });
@@ -1472,6 +1586,48 @@ async function getDetalleProyectoController(req, res) {
     } catch (error) {
         console.error("Error en el controlador getDetalleProyectoController:", error);
         return res.status(500).json({ success: false, message: "Error interno del servidor al obtener detalle del proyecto." });
+    }
+}
+
+async function getDatosGraficaProyectoController(req, res) {
+    try {
+        const { secretaria, proyecto } = req.query;
+        
+        console.log('DEBUG - Controller gráfica - Parámetros recibidos:', {
+            secretaria, 
+            proyecto
+        });
+
+        if (!secretaria || !proyecto) {
+            return res.status(400).json({
+                success: false,
+                message: "Los parámetros 'secretaria' y 'proyecto' son requeridos"
+            });
+        }
+
+        const { success, data, message, error } = 
+            await estadisticasModel.getDatosParaGraficaProyecto(secretaria, proyecto);
+
+        if (!success) {
+            return res.status(500).json({
+                success: false,
+                message: message || "Error al obtener datos para gráfica",
+                error
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            data
+        });
+
+    } catch (error) {
+        console.error("Error en controlador gráfica proyecto:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Error interno del servidor",
+            error: error.message
+        });
     }
 }
 
@@ -1574,7 +1730,6 @@ async function getMissingDetails(req, res) {
     }
 }
 
-
 module.exports = {
   uploadExcel,
   listTables,
@@ -1590,8 +1745,10 @@ module.exports = {
   getCpcOptions,
   actualizarFila,
   getProductosMgaOptions,
+  validarProductoController,
   getProyectosPorSecretariaController,
   getDetalleProyectoController,
+  getDatosGraficaProyectoController,
   getValidationSummary,
   getMissingDetails
 }
