@@ -1730,6 +1730,50 @@ async function getMissingDetails(req, res) {
     }
 }
 
+// Controlador, suma y consolidado de ejecución por proyecto
+async function getProyectosConsolidados(req, res) {
+  try {
+    const query = `
+      SELECT 
+          centro_gestor,
+          secretaria,
+          proyecto,
+          nombre_proyecto,
+          SUM(COALESCE(NULLIF(REGEXP_REPLACE(ppto_inicial, '[^0-9.]', '', 'g'), '')::numeric, 0)) AS total_ppto_inicial,
+          SUM(COALESCE(NULLIF(REGEXP_REPLACE(reducciones, '[^0-9.]', '', 'g'), '')::numeric, 0)) AS total_reducciones,
+          SUM(COALESCE(NULLIF(REGEXP_REPLACE(adiciones, '[^0-9.]', '', 'g'), '')::numeric, 0)) AS total_adiciones,
+          SUM(COALESCE(NULLIF(REGEXP_REPLACE("creditos", '[^0-9.]', '', 'g'), '')::numeric, 0)) AS total_creditos,
+          SUM(COALESCE(NULLIF(REGEXP_REPLACE(contracreditos, '[^0-9.]', '', 'g'), '')::numeric, 0)) AS total_contracreditos,
+          SUM(COALESCE(NULLIF(REGEXP_REPLACE(total_ppto_actual, '[^0-9.]', '', 'g'), '')::numeric, 0)) AS total_ppto_actual,
+          SUM(COALESCE(NULLIF(REGEXP_REPLACE(disponibilidad, '[^0-9.]', '', 'g'), '')::numeric, 0)) AS total_disponibilidad,
+          SUM(COALESCE(NULLIF(REGEXP_REPLACE(compromiso, '[^0-9.]', '', 'g'), '')::numeric, 0)) AS total_compromiso,
+          SUM(COALESCE(NULLIF(REGEXP_REPLACE(factura, '[^0-9.]', '', 'g'), '')::numeric, 0)) AS total_factura,
+          SUM(COALESCE(NULLIF(REGEXP_REPLACE(pagos, '[^0-9.]', '', 'g'), '')::numeric, 0)) AS total_pagos,
+          SUM(COALESCE(NULLIF(REGEXP_REPLACE(disponible_neto, '[^0-9.]', '', 'g'), '')::numeric, 0)) AS total_disponible_neto,
+          SUM(COALESCE(NULLIF(REGEXP_REPLACE("ejecucion", '[^0-9.]', '', 'g'), '')::numeric, 0)) AS total_ejecucion
+      FROM sis_catastro_verificacion.cuipo_plantilla_distrito_2025_vf
+      GROUP BY centro_gestor, secretaria, proyecto, nombre_proyecto
+      ORDER BY secretaria, proyecto;
+    `;
+
+    const { rows } = await pool.query(query);
+
+    res.status(200).json(rows);
+
+  } catch (error) {
+    console.error('❌ Error al obtener proyectos consolidados:', error);
+
+    // Muestra stack completo para debugging
+    console.error(error.stack);
+
+    res.status(500).json({ 
+      error: 'Error al obtener proyectos consolidados',
+      detalle: error.message,
+      stack: error.stack
+    });
+  }
+}
+
 module.exports = {
   uploadExcel,
   listTables,
@@ -1750,5 +1794,6 @@ module.exports = {
   getDetalleProyectoController,
   getDatosGraficaProyectoController,
   getValidationSummary,
-  getMissingDetails
+  getMissingDetails,
+  getProyectosConsolidados
 }

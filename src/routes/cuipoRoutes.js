@@ -20,7 +20,8 @@ const {
     getDetalleProyectoController,
     getDatosGraficaProyectoController,
     getValidationSummary,
-    getMissingDetails
+    getMissingDetails,
+    getProyectosConsolidados
 } = require("../controllers/cuipoController");
 const { verifyTokenInfo } = require('../middlewares/verifyToken');
 
@@ -75,6 +76,9 @@ router.get('/estadisticas/datos_grafica_proyecto', verifyTokenInfo, getDatosGraf
 // Obtener resumen de los validaDORES
 router.get('/estadisticas/resumen', verifyTokenInfo, getValidationSummary);
 router.get('/estadisticas/detalles-faltantes/:tipo_validador', verifyTokenInfo, getMissingDetails);
+
+// Ruta para el consolidado y suma de los valores por proyecto
+router.get('/estadisticas/proyectos-consolidados', verifyTokenInfo, getProyectosConsolidados);
 
 
 module.exports = router;
