@@ -1498,7 +1498,7 @@ async function validarProductoController(req, res) {
     }
 }
 
-// CONTROLADOR PARA OBTENER LA CANTIDAD DE PROYECTOS POS SECRETARIA
+// CONTROLADOR PARA OBTENER LA CANTIDAD DE PROYECTOS POR SECRETARIA
 async function getProyectosPorSecretariaController(req, res) {
     try {
         // Validación de autenticación y roles
