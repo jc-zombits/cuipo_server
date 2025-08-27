@@ -182,48 +182,61 @@ async function getDetalleProyecto(dependencia = null, secretariaNombre = null, p
 // 🔹 Datos resumidos para gráfica de un proyecto
 async function getDatosParaGraficaProyecto(secretariaNombre = null, proyectoCodigoONombre = null) {
     try {
-        console.log('DEBUG - Obteniendo datos para gráfica:', { secretariaNombre, proyectoCodigoONombre });
+        console.log('DEBUG - Obteniendo datos para gráfica consolidada:', { secretariaNombre, proyectoCodigoONombre });
 
-        const params = [];
-        let paramIndex = 1;
+        // Normalizar parámetros
+        const secretariaParam = secretariaNombre ? secretariaNombre.toString().trim() : null;
+        // tomamos solo los primeros 6 caracteres del código del proyecto (si viene completo)
+        const proyectoCodigo = proyectoCodigoONombre ? proyectoCodigoONombre.toString().trim().substring(0, 6) : null;
 
+        const params = [secretariaParam, proyectoCodigo];
+
+        // Usamos regexp_replace para eliminar cualquier carácter distinto de dígito, punto o signo menos,
+        // luego NULLIF('', '') para convertir cadenas vacías a NULL, casteamos a numeric y aplicamos SUM.
+        // Finalmente envuelve en COALESCE(..., 0) para devolver 0 en vez de NULL si no hay valores.
         const query = `
-            SELECT DISTINCT ON (TRIM(proyecto))
-                ppto_inicial,
-                total_ppto_actual,
-                disponibilidad,
-                disponible_neto,
-                _ejecucion as ejecucion_porcentaje,
+            SELECT
                 TRIM(secretaria) AS dependencia,
                 TRIM(proyecto) AS proyecto,
                 TRIM(nombre_proyecto) AS nombre_proyecto,
-                TRIM(fuente) AS fuente
-            FROM sis_catastro_verificacion.cuipo_plantilla_distrito_2025_vf
-            WHERE TRIM(secretaria) = $${paramIndex++}
-            AND TRIM(proyecto) = $${paramIndex}
-            ORDER BY TRIM(proyecto), TRIM(fuente)
+                COALESCE(SUM(NULLIF(regexp_replace(ppto_inicial::text, '[^0-9.-]', '', 'g'), '')::numeric), 0) AS ppto_inicial,
+                COALESCE(SUM(NULLIF(regexp_replace(reducciones::text, '[^0-9.-]', '', 'g'), '')::numeric), 0) AS reducciones,
+                COALESCE(SUM(NULLIF(regexp_replace(adiciones::text, '[^0-9.-]', '', 'g'), '')::numeric), 0) AS adiciones,
+                COALESCE(SUM(NULLIF(regexp_replace(creditos::text, '[^0-9.-]', '', 'g'), '')::numeric), 0) AS creditos,
+                COALESCE(SUM(NULLIF(regexp_replace(contracreditos::text, '[^0-9.-]', '', 'g'), '')::numeric), 0) AS contracreditos,
+                COALESCE(SUM(NULLIF(regexp_replace(total_ppto_actual::text, '[^0-9.-]', '', 'g'), '')::numeric), 0) AS total_ppto_actual,
+                COALESCE(SUM(NULLIF(regexp_replace(disponibilidad::text, '[^0-9.-]', '', 'g'), '')::numeric), 0) AS disponibilidad,
+                COALESCE(SUM(NULLIF(regexp_replace(compromiso::text, '[^0-9.-]', '', 'g'), '')::numeric), 0) AS compromiso,
+                COALESCE(SUM(NULLIF(regexp_replace(factura::text, '[^0-9.-]', '', 'g'), '')::numeric), 0) AS factura,
+                COALESCE(SUM(NULLIF(regexp_replace(pagos::text, '[^0-9.-]', '', 'g'), '')::numeric), 0) AS pagos,
+                COALESCE(SUM(NULLIF(regexp_replace(disponible_neto::text, '[^0-9.-]', '', 'g'), '')::numeric), 0) AS disponible_neto,
+                COALESCE(SUM(NULLIF(regexp_replace(ejecucion::text, '[^0-9.-]', '', 'g'), '')::numeric), 0) AS ejecucion
+            FROM ${process.env.DB_SCHEMA}."cuipo_plantilla_distrito_2025_vf"
+            WHERE TRIM(secretaria) = $1
+              AND LEFT(TRIM(proyecto), 6) = $2
+            GROUP BY TRIM(secretaria), TRIM(proyecto), TRIM(nombre_proyecto)
+            LIMIT 1;
         `;
-        params.push(secretariaNombre.trim(), proyectoCodigoONombre.trim());
 
-        console.log("DEBUG - Query para gráfica:", {
+        console.log("DEBUG - Query para gráfica 2:", {
             query: query.replace(/\s+/g, ' '),
             params
         });
 
         const result = await pool.query(query, params);
 
-        console.log("⚡DEBUG - Resultados detalle:", result.rows[0]);
-        return { 
-            success: true, 
+        console.log("⚡DEBUG - Resultados detalle consolidado:", result.rows[0]);
+        return {
+            success: true,
             data: result.rows.length > 0 ? result.rows[0] : null
         };
 
     } catch (error) {
-        console.error("Error al obtener datos para gráfica:", error);
-        return { 
-            success: false, 
-            message: "Error al obtener datos para gráfica.", 
-            error: error.message 
+        console.error("Error al obtener datos para gráfica consolidada:", error);
+        return {
+            success: false,
+            message: "Error al obtener datos para gráfica consolidada.",
+            error: error.message
         };
     }
 }
