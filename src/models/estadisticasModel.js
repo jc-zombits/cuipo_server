@@ -126,53 +126,35 @@ async function getDetalleProyecto(dependencia = null, secretariaNombre = null, p
     try {
         console.log('🔍 DEBUG - Obteniendo detalle de proyecto:', { secretariaNombre, proyectoCodigoONombre });
 
-        let query = "";
         const params = [];
         let paramIndex = 1;
 
-        if (secretariaNombre?.includes("SECRETARÍA") || secretariaNombre?.includes("DIRECCIÓN")) {
-            // 🔹 Buscar en Secretarías (tiene datos financieros)
-            query = `
-                SELECT DISTINCT ON (TRIM(proyecto))
-                    TRIM(fuente) AS fuente,
-                    TRIM(secretaria) AS dependencia,
-                    TRIM(pospre) AS pospre,
-                    TRIM(proyecto) AS proyecto_,
-                    TRIM(nombre_proyecto) AS nombre_proyecto,
-                    ppto_inicial,
-                    reducciones,
-                    adiciones,
-                    creditos,
-                    contracreditos,
-                    total_ppto_actual,
-                    disponibilidad,
-                    compromiso,
-                    factura,
-                    pagos,
-                    disponible_neto,
-                    ejecucion,
-                    _ejecucion
-                FROM sis_catastro_verificacion.cuipo_plantilla_distrito_2025_vf
-                WHERE TRIM(secretaria) = $${paramIndex++}
-                AND TRIM(proyecto) = $${paramIndex}
-                ORDER BY TRIM(proyecto), TRIM(fuente)
-            `;
-            params.push(secretariaNombre.trim(), proyectoCodigoONombre.trim());
-        } else {
-            // 🔹 Establecimientos Públicos → solo catálogo
-            query = `
-                SELECT
-                    TRIM(centro_gestor) AS fuente,
-                    TRIM(establecimiento_publico) AS dependencia,
-                    TRIM(proyecto) AS proyecto_,
-                    TRIM(nombre) AS nombre_proyecto,
-                    TRIM(codigo) AS codigo
-                FROM sis_catastro_verificacion.estapublicos
-                WHERE TRIM(establecimiento_publico) = $${paramIndex++}
-                  AND (TRIM(proyecto) = $${paramIndex} OR TRIM(nombre) = $${paramIndex})
-            `;
-            params.push(secretariaNombre.trim(), proyectoCodigoONombre.trim(), proyectoCodigoONombre.trim());
-        }
+        const query = `
+            SELECT DISTINCT ON (TRIM(proyecto))
+                TRIM(fuente) AS fuente,
+                TRIM(secretaria) AS dependencia,
+                TRIM(pospre) AS pospre,
+                TRIM(proyecto) AS proyecto_,
+                TRIM(nombre_proyecto) AS nombre_proyecto,
+                ppto_inicial,
+                reducciones,
+                adiciones,
+                creditos,
+                contracreditos,
+                total_ppto_actual,
+                disponibilidad,
+                compromiso,
+                factura,
+                pagos,
+                disponible_neto,
+                ejecucion,
+                _ejecucion
+            FROM sis_catastro_verificacion.cuipo_plantilla_distrito_2025_vf
+            WHERE TRIM(secretaria) = $${paramIndex++}
+            AND TRIM(proyecto) = $${paramIndex}
+            ORDER BY TRIM(proyecto), TRIM(fuente)
+        `;
+        params.push(secretariaNombre.trim(), proyectoCodigoONombre.trim());
 
         console.log("🔍 DEBUG - Query detalle proyecto:", {
             query: query.replace(/\s+/g, ' '),
@@ -202,45 +184,26 @@ async function getDatosParaGraficaProyecto(secretariaNombre = null, proyectoCodi
     try {
         console.log('DEBUG - Obteniendo datos para gráfica:', { secretariaNombre, proyectoCodigoONombre });
 
-        let query = "";
         const params = [];
         let paramIndex = 1;
 
-        if (secretariaNombre?.includes("SECRETARÍA") || secretariaNombre?.includes("DIRECCIÓN")) {
-            // 🔹 Secretarías (sí tienen datos financieros)
-            query = `
-                SELECT DISTINCT ON (TRIM(proyecto))
-                    ppto_inicial,
-                    total_ppto_actual,
-                    disponibilidad,
-                    disponible_neto,
-                    _ejecucion as ejecucion_porcentaje,
-                    TRIM(secretaria) AS dependencia,
-                    TRIM(proyecto) AS proyecto,
-                    TRIM(nombre_proyecto) AS nombre_proyecto,
-                    TRIM(fuente) AS fuente
-                FROM sis_catastro_verificacion.cuipo_plantilla_distrito_2025_vf
-                WHERE TRIM(secretaria) = $${paramIndex++}
-                AND TRIM(proyecto) = $${paramIndex}
-                ORDER BY TRIM(proyecto), TRIM(fuente)
-            `;
-            params.push(secretariaNombre.trim(), proyectoCodigoONombre.trim());
-        } else {
-            // 🔹 Establecimientos Públicos → de momento solo catálogo
-            query = `
-                SELECT
-                    TRIM(establecimiento_publico) AS dependencia,
-                    TRIM(proyecto) AS proyecto,
-                    TRIM(nombre) AS nombre_proyecto,
-                    TRIM(codigo) AS codigo,
-                    TRIM(centro_gestor) AS fuente
-                FROM sis_catastro_verificacion.estapublicos
-                WHERE TRIM(establecimiento_publico) = $${paramIndex++}
-                  AND (TRIM(proyecto) = $${paramIndex} OR TRIM(nombre) = $${paramIndex})
-                LIMIT 1
-            `;
-            params.push(secretariaNombre.trim(), proyectoCodigoONombre.trim(), proyectoCodigoONombre.trim());
-        }
+        const query = `
+            SELECT DISTINCT ON (TRIM(proyecto))
+                ppto_inicial,
+                total_ppto_actual,
+                disponibilidad,
+                disponible_neto,
+                _ejecucion as ejecucion_porcentaje,
+                TRIM(secretaria) AS dependencia,
+                TRIM(proyecto) AS proyecto,
+                TRIM(nombre_proyecto) AS nombre_proyecto,
+                TRIM(fuente) AS fuente
+            FROM sis_catastro_verificacion.cuipo_plantilla_distrito_2025_vf
+            WHERE TRIM(secretaria) = $${paramIndex++}
+            AND TRIM(proyecto) = $${paramIndex}
+            ORDER BY TRIM(proyecto), TRIM(fuente)
+        `;
+        params.push(secretariaNombre.trim(), proyectoCodigoONombre.trim());
 
         console.log("DEBUG - Query para gráfica:", {
             query: query.replace(/\s+/g, ' '),

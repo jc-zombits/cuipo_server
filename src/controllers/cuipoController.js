@@ -451,7 +451,7 @@ async function procesarParte2(req, res) {
                                  (SELECT TRIM(ep.establecimiento_publico)
                                    FROM ${process.env.DB_SCHEMA}.estapublicos AS ep
                                    WHERE TRIM(cpf.proyecto) = TRIM(ep.proyecto)
-                                   LIMIT 1),
+                                   ),
                                  'SECRETARÍA DE HACIENDA'
                              )
                         ELSE
@@ -459,7 +459,7 @@ async function procesarParte2(req, res) {
                                  (SELECT TRIM(d2.dependencia)
                                    FROM ${process.env.DB_SCHEMA}.dependencias AS d2
                                    WHERE TRIM(cpf.centro_gestor) = TRIM(d2.centro_gestor)
-                                   LIMIT 1),
+                                   ),
                                  'SECRETARÍA DE HACIENDA'
                              )
                     END AS new_secretaria
@@ -478,7 +478,7 @@ async function procesarParte2(req, res) {
                         (SELECT TRIM(t.codigo)
                            FROM ${process.env.DB_SCHEMA}.terceros AS t
                            WHERE TRIM(cv.new_secretaria) = TRIM(t.establecimientos_publicos)
-                           LIMIT 1),
+                           ),
                         '1'
                     ) AS new_tercero_cuipo
                 FROM
@@ -1640,8 +1640,8 @@ async function getValidationSummary(req, res) {
         // Consulta para CPC - ESTAS CONSULTAS ESTÁN CORRECTAS SEGÚN TU VALIDACIÓN
         const cpcQuery = `
             SELECT
-                COUNT(*) FILTER (WHERE validador_cpc = 'CPC OK') AS cpc_ok,
-                COUNT(*) FILTER (WHERE validador_cpc IS NULL OR validador_cpc = '') AS cpc_faltantes
+                SUM(CASE WHEN codigo_y_nombre_del_cpc IS NOT NULL AND codigo_y_nombre_del_cpc <> '' THEN 1 ELSE 0 END) AS cpc_ok,
+                SUM(CASE WHEN codigo_y_nombre_del_cpc IS NULL OR codigo_y_nombre_del_cpc = '' THEN 1 ELSE 0 END) AS cpc_faltantes
             FROM ${process.env.DB_SCHEMA}."cuipo_plantilla_distrito_2025_vf";
         `;
         const cpcResult = await client.query(cpcQuery);
@@ -1706,7 +1706,10 @@ async function getMissingDetails(req, res) {
                 secretaria,   -- ¡CAMBIO AQUÍ! Nombre de columna corregido
                 nombre_proyecto AS nombre_del_proyecto_o_codigo_sap -- ¡CAMBIO AQUÍ! Nombre de columna corregido
             FROM ${process.env.DB_SCHEMA}."cuipo_plantilla_distrito_2025_vf"
-            WHERE ${validadorColumn} IS NULL OR ${validadorColumn} = '';
+            WHERE ${validadorColumn} = 'FAVOR DILIGENCIAR CPC'
+            OR ${validadorColumn} = 'FAVOR DILIGENCIAR PRODUCTO'
+            OR ${validadorColumn} IS NULL
+            OR ${validadorColumn} = '';
         `;
 
         const { rows } = await client.query(query);
