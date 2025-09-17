@@ -21,7 +21,9 @@ const {
     getDatosGraficaProyectoController,
     getValidationSummary,
     getMissingDetails,
-    getProyectosConsolidados
+    getProyectosConsolidados,
+    getDetalleSectorialOptions,
+    updateDetalleSectorial,
 } = require("../controllers/cuipoController");
 const { verifyTokenInfo } = require('../middlewares/verifyToken');
 
@@ -79,6 +81,10 @@ router.get('/estadisticas/detalles-faltantes/:tipo_validador', verifyTokenInfo, 
 
 // Ruta para el consolidado y suma de los valores por proyecto
 router.get('/estadisticas/proyectos-consolidados', verifyTokenInfo, getProyectosConsolidados);
+
+// Obtener opciones para el detalle sectorial
+router.get("/detalle-sectorial/:secretaria", verifyTokenInfo, getDetalleSectorialOptions);
+router.post("/detalle-sectorial/update", verifyTokenInfo, updateDetalleSectorial);
 
 
 module.exports = router;

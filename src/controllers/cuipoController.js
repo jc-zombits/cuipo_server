@@ -1284,15 +1284,15 @@ async function getCpcOptions(req, res) {
 }
 
 async function actualizarFila(req, res) {
-    // Desestructurar todos los campos relevantes que pueden llegar en el body
     const { 
         id, 
         codigo_y_nombre_del_cpc, 
         cpc_cuipo, 
         validador_cpc,
-        codigo_y_nombre_del_producto_mga, // ¡NUEVO!
-        producto_cuipo,                   // ¡NUEVO!
-        validador_del_producto            // ¡NUEVO!
+        codigo_y_nombre_del_producto_mga,
+        producto_cuipo,
+        validador_del_producto,
+        detalle_sectorial
     } = req.body;
 
     let client;
@@ -1305,12 +1305,11 @@ async function actualizarFila(req, res) {
         client = await pool.connect();
         await client.query('BEGIN');
 
-        // Construir la consulta de UPDATE dinámicamente
         const updates = [];
         const values = [];
         let paramIndex = 1;
 
-        // Lógica para campos CPC
+        // Campos CPC
         if (codigo_y_nombre_del_cpc !== undefined) {
             updates.push(`codigo_y_nombre_del_cpc = $${paramIndex++}`);
             values.push(codigo_y_nombre_del_cpc);
@@ -1324,7 +1323,7 @@ async function actualizarFila(req, res) {
             values.push(validador_cpc);
         }
 
-        // --- ¡NUEVA LÓGICA para campos de Producto MGA! ---
+        // Campos Producto MGA
         if (codigo_y_nombre_del_producto_mga !== undefined) {
             updates.push(`codigo_y_nombre_del_producto_mga = $${paramIndex++}`);
             values.push(codigo_y_nombre_del_producto_mga);
@@ -1337,14 +1336,19 @@ async function actualizarFila(req, res) {
             updates.push(`validador_del_producto = $${paramIndex++}`);
             values.push(validador_del_producto);
         }
-        // ----------------------------------------------------
+
+        // --- NUEVO: Detalle Sectorial ---
+        if (detalle_sectorial !== undefined) {
+            updates.push(`detalle_sectorial = $${paramIndex++}`);
+            values.push(detalle_sectorial);
+        }
 
         if (updates.length === 0) {
             await client.query('ROLLBACK');
             return res.status(400).json({ success: false, message: "No se proporcionaron campos para actualizar." });
         }
 
-        values.push(id); // Añadir el ID al final de los valores
+        values.push(id);
 
         const updateQuery = `
             UPDATE ${process.env.DB_SCHEMA}."cuipo_plantilla_distrito_2025_vf"
@@ -1777,6 +1781,76 @@ async function getProyectosConsolidados(req, res) {
   }
 }
 
+// 1. Obtener opciones de detalle_sectorial según secretaria
+async function getDetalleSectorialOptions(req, res) {
+  try {
+    const { secretaria } = req.params;
+
+    let query = "";
+    if (secretaria === "SECRETARÍA DE EDUCACIÓN") {
+      query = `
+        SELECT 
+          detalle_sectorial,
+          TRIM(SPLIT_PART(detalle_sectorial, '-', 1)) AS extrae_detalle_sectorial,
+          NULL::text AS detalle_sectorial_prog_gasto
+        FROM sis_catastro_verificacion.detalle_sectorial_educacion
+        WHERE sector = 'EDUCACION'
+        ORDER BY detalle_sectorial;
+      `;
+    } else if (secretaria === "SECRETARÍA DE SALUD") {
+      query = `
+        SELECT 
+          ds.detalle_sectorial,
+          TRIM(SPLIT_PART(ds.detalle_sectorial, '-', 1)) AS extrae_detalle_sectorial,
+          sg.codigo_programacion_del_gasto AS detalle_sectorial_prog_gasto
+        FROM sis_catastro_verificacion.detalle_sectorial_salud ds
+        LEFT JOIN sis_catastro_verificacion.sectorial_gastos_salud sg
+          ON TRIM(SPLIT_PART(ds.detalle_sectorial, '-', 1)) = sg.codigo_ejecucion_del_gasto
+        WHERE ds.sector = 'SALUD'
+        ORDER BY ds.detalle_sectorial;
+      `;
+    } else {
+      return res.status(400).json({ message: "Secretaría no válida" });
+    }
+
+    const result = await pool.query(query);
+
+    // Retornar los datos para el select
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error("Error getDetalleSectorialOptions:", error);
+    res.status(500).json({ message: "Error al obtener opciones de detalle sectorial" });
+  }
+}
+
+
+// 2. Guardar la selección de detalle_sectorial en la tabla principal
+async function updateDetalleSectorial (req, res) {
+  try {
+    const { id, detalle_sectorial } = req.body;
+
+    const query = `
+      UPDATE sis_catastro_verificacion.cuipo_plantilla_distrito_2025_vf
+      SET detalle_sectorial = $1
+      WHERE id = $2
+      RETURNING *;
+    `;
+
+    const result = await pool.query(query, [detalle_sectorial, id]);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: "Registro no encontrado" });
+    }
+
+    res.json(result.rows[0]);
+
+  } catch (error) {
+    console.error("Error updateDetalleSectorial:", error);
+    res.status(500).json({ message: "Error al actualizar detalle sectorial" });
+  }
+};
+
 module.exports = {
   uploadExcel,
   listTables,
@@ -1798,5 +1872,7 @@ module.exports = {
   getDatosGraficaProyectoController,
   getValidationSummary,
   getMissingDetails,
-  getProyectosConsolidados
+  getProyectosConsolidados,
+  getDetalleSectorialOptions,
+  updateDetalleSectorial
 }
