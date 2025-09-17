@@ -1292,7 +1292,9 @@ async function actualizarFila(req, res) {
         codigo_y_nombre_del_producto_mga,
         producto_cuipo,
         validador_del_producto,
-        detalle_sectorial
+        detalle_sectorial,
+        extrae_detalle_sectorial,
+        detalle_sectorial_prog_gasto
     } = req.body;
 
     let client;
@@ -1309,7 +1311,7 @@ async function actualizarFila(req, res) {
         const values = [];
         let paramIndex = 1;
 
-        // Campos CPC
+        // ... (Tu código para CPC y Producto MGA se queda igual)
         if (codigo_y_nombre_del_cpc !== undefined) {
             updates.push(`codigo_y_nombre_del_cpc = $${paramIndex++}`);
             values.push(codigo_y_nombre_del_cpc);
@@ -1322,8 +1324,6 @@ async function actualizarFila(req, res) {
             updates.push(`validador_cpc = $${paramIndex++}`);
             values.push(validador_cpc);
         }
-
-        // Campos Producto MGA
         if (codigo_y_nombre_del_producto_mga !== undefined) {
             updates.push(`codigo_y_nombre_del_producto_mga = $${paramIndex++}`);
             values.push(codigo_y_nombre_del_producto_mga);
@@ -1337,12 +1337,21 @@ async function actualizarFila(req, res) {
             values.push(validador_del_producto);
         }
 
-        // --- NUEVO: Detalle Sectorial ---
+        // --- LÓGICA DE DETALLE SECTORIAL CORREGIDA ---
         if (detalle_sectorial !== undefined) {
             updates.push(`detalle_sectorial = $${paramIndex++}`);
             values.push(detalle_sectorial);
         }
-
+        // --- AÑADIR ESTO ---
+        if (extrae_detalle_sectorial !== undefined) {
+            updates.push(`extrae_detalle_sectorial = $${paramIndex++}`);
+            values.push(extrae_detalle_sectorial);
+        }
+        if (detalle_sectorial_prog_gasto !== undefined) {
+            updates.push(`detalle_sectorial_prog_gasto = $${paramIndex++}`);
+            values.push(detalle_sectorial_prog_gasto);
+        }
+        
         if (updates.length === 0) {
             await client.query('ROLLBACK');
             return res.status(400).json({ success: false, message: "No se proporcionaron campos para actualizar." });
@@ -1367,8 +1376,8 @@ async function actualizarFila(req, res) {
         res.status(200).json({ success: true, message: "Fila actualizada exitosamente." });
 
     } catch (error) {
-        await client.query('ROLLBACK');
-        console.error('❌ Error al actualizar fila:', error.message);
+        if (client) await client.query('ROLLBACK');
+        console.error('❌ Error al actualizar fila:', error);
         res.status(500).json({
             success: false,
             message: "Error interno del servidor al actualizar la fila.",
